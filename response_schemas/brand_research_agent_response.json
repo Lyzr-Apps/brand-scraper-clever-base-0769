@@ -1,7 +1,7 @@
 {
   "agent_name": "Brand Research Agent",
   "agent_id": "6998555cdad6f4a9e9c2e146",
-  "description": "Takes brand names from uploaded CSV, researches each brand on the web to collect: website URL, logo URL, founded year, about us summary, product category (e.g., consumer tech, sportswear), social media links (Twitter, LinkedIn, Instagram, Facebook), and contact info (email, phone, HQ address). Returns structured data with \"Not Found\" for unavailable fields.",
+  "description": "Takes brand names (pasted as text or from CSV), researches each brand on the web with a Turkey-first methodology to collect: official website (Turkey site preferred, global fallback), logo URL, founded year, about page link, product categories, social media links, contact info. Returns structured data with verification confidence levels.",
   "agent_type": "json",
   "accessor": "result",
   "auto_generated": true,
@@ -10,15 +10,22 @@
       {
         "brand_name": "string",
         "website_url": "string",
+        "website_scope": "string",
+        "confidence": "string",
+        "verification_notes": "string",
         "logo_url": "string",
         "founded_year": "string",
         "about_summary": "string",
+        "about_page_link": "string",
         "product_category": "string",
         "social_media": {
           "twitter": "string",
           "linkedin": "string",
           "instagram": "string",
-          "facebook": "string"
+          "facebook": "string",
+          "youtube": "string",
+          "tiktok": "string",
+          "pinterest": "string"
         },
         "contact_info": {
           "email": "string",
@@ -36,20 +43,27 @@
     "brands": [
       {
         "brand_name": "The name of the brand",
-        "website_url": "Official website URL or Not Found",
-        "logo_url": "URL to the brand logo or Not Found",
-        "founded_year": "Year the brand was founded or Not Found",
+        "website_url": "Selected official website URL (Turkey preferred) or Not Found",
+        "website_scope": "Turkey, Global, or Not Found",
+        "confidence": "Verified, Partially Verified, or Not Found",
+        "verification_notes": "Brief explanation of verification evidence",
+        "logo_url": "Direct image URL of brand logo or Not Found",
+        "founded_year": "Year founded if stated on official site, or Not Found",
         "about_summary": "2-3 sentence about us summary or Not Found",
-        "product_category": "Brand category e.g. Consumer Tech, Sportswear or Not Found",
+        "about_page_link": "Full URL of about page or Not Found",
+        "product_category": "Comma-separated product categories from site navigation or Not Found",
         "social_media": {
           "twitter": "Twitter/X profile URL or Not Found",
           "linkedin": "LinkedIn page URL or Not Found",
           "instagram": "Instagram profile URL or Not Found",
-          "facebook": "Facebook page URL or Not Found"
+          "facebook": "Facebook page URL or Not Found",
+          "youtube": "YouTube channel URL or Not Found",
+          "tiktok": "TikTok profile URL or Not Found",
+          "pinterest": "Pinterest profile URL or Not Found"
         },
         "contact_info": {
-          "email": "Contact email or Not Found",
-          "phone": "Phone number or Not Found",
+          "email": "Primary contact email or Not Found",
+          "phone": "Primary phone number or Not Found",
           "hq_address": "Headquarters address or Not Found"
         },
         "status": "Complete if all fields found, Partial if some Not Found"
