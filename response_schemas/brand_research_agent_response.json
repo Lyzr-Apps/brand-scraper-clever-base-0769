@@ -1,0 +1,70 @@
+{
+  "agent_name": "Brand Research Agent",
+  "agent_id": "6998555cdad6f4a9e9c2e146",
+  "description": "Takes brand names from uploaded CSV, researches each brand on the web to collect: website URL, logo URL, founded year, about us summary, product category (e.g., consumer tech, sportswear), social media links (Twitter, LinkedIn, Instagram, Facebook), and contact info (email, phone, HQ address). Returns structured data with \"Not Found\" for unavailable fields.",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "brands": [
+      {
+        "brand_name": "string",
+        "website_url": "string",
+        "logo_url": "string",
+        "founded_year": "string",
+        "about_summary": "string",
+        "product_category": "string",
+        "social_media": {
+          "twitter": "string",
+          "linkedin": "string",
+          "instagram": "string",
+          "facebook": "string"
+        },
+        "contact_info": {
+          "email": "string",
+          "phone": "string",
+          "hq_address": "string"
+        },
+        "status": "string"
+      }
+    ],
+    "total_brands": "number",
+    "complete_count": "number",
+    "partial_count": "number"
+  },
+  "example_response": {
+    "brands": [
+      {
+        "brand_name": "The name of the brand",
+        "website_url": "Official website URL or Not Found",
+        "logo_url": "URL to the brand logo or Not Found",
+        "founded_year": "Year the brand was founded or Not Found",
+        "about_summary": "2-3 sentence about us summary or Not Found",
+        "product_category": "Brand category e.g. Consumer Tech, Sportswear or Not Found",
+        "social_media": {
+          "twitter": "Twitter/X profile URL or Not Found",
+          "linkedin": "LinkedIn page URL or Not Found",
+          "instagram": "Instagram profile URL or Not Found",
+          "facebook": "Facebook page URL or Not Found"
+        },
+        "contact_info": {
+          "email": "Contact email or Not Found",
+          "phone": "Phone number or Not Found",
+          "hq_address": "Headquarters address or Not Found"
+        },
+        "status": "Complete if all fields found, Partial if some Not Found"
+      }
+    ],
+    "total_brands": 0,
+    "complete_count": 0,
+    "partial_count": 0
+  },
+  "has_module_outputs": true,
+  "module_outputs_example": {
+    "artifact_files": [
+      {
+        "file_url": "https://example.com/file.pdf"
+      }
+    ]
+  }
+}

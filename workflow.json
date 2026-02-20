@@ -1,0 +1,40 @@
+{
+  "workflow": {
+    "nodes": [
+      {
+        "id": "input_node",
+        "type": "Input",
+        "label": "CSV Upload",
+        "nodeCategory": "input"
+      },
+      {
+        "id": "brand_research_agent",
+        "type": "Agent",
+        "label": "Brand Research Agent",
+        "nodeCategory": "agent",
+        "agent_id": "6998555cdad6f4a9e9c2e146",
+        "provider": "Perplexity",
+        "model": "sonar-pro",
+        "temperature": 0.2,
+        "top_p": 1,
+        "file_output": true
+      },
+      {
+        "id": "output_node",
+        "type": "Output",
+        "label": "Brand Results",
+        "nodeCategory": "end"
+      }
+    ],
+    "edges": [
+      {
+        "source": "input_node",
+        "target": "brand_research_agent"
+      },
+      {
+        "source": "brand_research_agent",
+        "target": "output_node"
+      }
+    ]
+  }
+}

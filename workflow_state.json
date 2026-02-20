@@ -1,0 +1,16 @@
+{
+  "agents": [
+    {
+      "agent_name": "Brand Research Agent",
+      "agent_id": "6998555cdad6f4a9e9c2e146",
+      "provider": "Perplexity",
+      "model": "sonar-pro",
+      "temperature": 0.2,
+      "top_p": 1,
+      "file_output": true,
+      "response_schema_path": "response_schemas/brand_research_agent_response.json"
+    }
+  ],
+  "rag_ids": [],
+  "schedule_ids": []
+}
