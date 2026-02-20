@@ -1038,29 +1038,29 @@ export default function Page() {
     setActiveAgent(true)
 
     try {
-      // Build the research message with Turkey-first methodology
+      // Build the research message — keep it simple, let agent system instructions drive methodology
       const brandList = brandNames.join('\n')
-      const message = `You are an expert web researcher and verifier. Research the following brands with a Turkey-first methodology. For each brand, find the official website (prefer Turkey .com.tr or tr. subdomain, fallback to global), then extract details ONLY from the verified official site.
+      const message = `Research the following ${brandNames.length} brand(s). For each brand, find ALL available information. You MUST return a result for every single brand listed — never skip any.
 
-For each brand find:
-- Official website URL (Turkey-first, then global)
-- Website scope (Turkey / Global / Not Found)
-- Verification confidence (Verified / Partially Verified / Not Found)
-- Brief verification notes
-- Logo URL (direct image file URL from site header)
-- Founded year (only if stated on official site)
-- About us summary (2-3 sentences)
-- About page link
-- Product categories (from site navigation)
-- Social media: Instagram, Facebook, LinkedIn, Twitter/X, YouTube, TikTok, Pinterest
-- Contact: email, phone, HQ address
+For each brand collect:
+1. Official website URL (check for Turkey-specific .com.tr or tr. subdomain first, then use global site)
+2. Website scope (Turkey / Global)
+3. Confidence level (Verified / Partially Verified)
+4. Brief verification notes
+5. Logo URL (try https://logo.clearbit.com/{domain} if not found directly)
+6. Founded year
+7. About summary (2-3 sentences — use your knowledge if the website doesn't have an about page)
+8. About page link
+9. Product categories (always provide at least a general category based on what you know about the brand)
+10. Social media links: Instagram, Facebook, LinkedIn, Twitter/X, YouTube, TikTok, Pinterest
+11. Contact info: email, phone, HQ address
 
-Authenticity verification rules:
-- Brand name/logo must match in header/footer
-- REJECT marketplaces (Trendyol, Hepsiburada, Amazon), multi-brand retailers, resellers, coupon sites
-- Use "Not Found" for any field not confirmed on the official site
+Important:
+- ALWAYS provide product_category and about_summary for every brand, even if you need to use general knowledge
+- Prefer official brand websites over marketplaces or reseller sites
+- If you cannot find a specific field, use "Not Found" for that field only — do NOT skip the entire brand
 
-Here are the brands:
+Here are the brands to research:
 
 ${brandList}`
 
