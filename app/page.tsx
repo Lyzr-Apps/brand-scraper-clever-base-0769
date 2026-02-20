@@ -109,76 +109,170 @@ const parseBrandText = (text: string): string[] => {
   return filtered.map((l) => l.replace(/^["']|["']$/g, '').trim()).filter((l) => l.length > 0)
 }
 
-const parseAgentResponse = (result: AIAgentResponse): Brand[] => {
-  try {
-    let data = result?.response?.result as unknown
-    // Handle string responses (agent might return JSON as string)
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data)
-      } catch {
-        // Try to extract JSON from markdown code blocks
-        const jsonMatch = (data as string).match(/```(?:json)?\s*([\s\S]*?)```/)
-        if (jsonMatch) {
-          try {
-            data = JSON.parse(jsonMatch[1])
-          } catch {
-            return []
-          }
-        } else {
-          return []
+// ─── Deep extraction helpers ─────────────────────────────────────────────────
+
+/** Try to parse a string as JSON, including markdown code block extraction */
+const tryParseString = (s: string): unknown | null => {
+  if (!s || typeof s !== 'string') return null
+  const trimmed = s.trim()
+  // Direct JSON parse
+  try { return JSON.parse(trimmed) } catch {}
+  // Extract from markdown code blocks
+  const codeBlockMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
+  if (codeBlockMatch?.[1]) {
+    try { return JSON.parse(codeBlockMatch[1].trim()) } catch {}
+  }
+  // Extract first JSON object/array from text
+  const jsonStart = trimmed.search(/[{\[]/)
+  if (jsonStart >= 0) {
+    try { return JSON.parse(trimmed.slice(jsonStart)) } catch {}
+  }
+  return null
+}
+
+/** Recursively resolve a value: if it's a string, try to parse it as JSON */
+const resolveValue = (val: unknown, depth = 0): unknown => {
+  if (depth > 5) return val
+  if (typeof val === 'string') {
+    const parsed = tryParseString(val)
+    return parsed !== null ? resolveValue(parsed, depth + 1) : val
+  }
+  return val
+}
+
+/** Map a ChatGPT-schema result object to our Brand interface */
+const mapChatGPTResult = (r: Record<string, unknown>): Brand => {
+  const wd = r?.website_details as Record<string, unknown> | undefined
+  const sm = wd?.social_media as Record<string, string> | undefined
+  return {
+    brand_name: (r?.brand_name as string) ?? '',
+    website_url: (r?.selected_official_website as string) ?? (r?.official_website_turkey as string) ?? '',
+    website_scope: (r?.website_scope as string) ?? '',
+    confidence: (r?.confidence as string) ?? '',
+    verification_notes: (r?.verification_notes as string) ?? '',
+    logo_url: (wd?.logo_url as string) ?? '',
+    founded_year: (wd?.founded_year as string) ?? '',
+    about_summary: '',
+    about_page_link: (wd?.about_page_link as string) ?? '',
+    product_category: Array.isArray(wd?.product_categories)
+      ? (wd.product_categories as string[]).join(', ')
+      : (wd?.product_categories as string) ?? '',
+    social_media: {
+      twitter: sm?.twitter ?? '',
+      linkedin: sm?.linkedin ?? '',
+      instagram: sm?.instagram ?? '',
+      facebook: sm?.facebook ?? '',
+      youtube: sm?.youtube ?? '',
+      tiktok: sm?.tiktok ?? '',
+      pinterest: sm?.pinterest ?? '',
+    },
+    contact_info: {
+      email: (wd?.contact_email as string) ?? '',
+      phone: (wd?.contact_phone as string) ?? '',
+      hq_address: '',
+    },
+    status: (r?.confidence as string)?.toLowerCase() === 'verified' ? 'Complete' : 'Partial',
+  }
+}
+
+/**
+ * Search an object for a brands array. Checks known keys and does
+ * a shallow recursive search through object values.
+ */
+const findBrandsInObject = (obj: unknown, depth = 0): Brand[] | null => {
+  if (depth > 4 || !obj || typeof obj !== 'object') return null
+  if (Array.isArray(obj)) {
+    // Check if this IS a brands array (array of objects with brand_name)
+    if (obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
+      const first = obj[0] as Record<string, unknown>
+      if ('brand_name' in first) return obj as Brand[]
+    }
+    return null
+  }
+  const record = obj as Record<string, unknown>
+
+  // Check standard keys
+  for (const key of ['brands', 'results']) {
+    const val = resolveValue(record[key])
+    if (Array.isArray(val) && val.length > 0) {
+      const first = val[0]
+      if (typeof first === 'object' && first !== null) {
+        const firstRec = first as Record<string, unknown>
+        if ('brand_name' in firstRec) {
+          // Standard brand format
+          return val as Brand[]
+        }
+        if ('website_details' in firstRec || 'selected_official_website' in firstRec) {
+          // ChatGPT schema format
+          return (val as Record<string, unknown>[]).map(mapChatGPTResult)
         }
       }
     }
-    const obj = data as Record<string, unknown> | undefined
-    // Standard path: result.brands
-    const brands = obj?.brands
-    if (Array.isArray(brands)) {
-      return brands as Brand[]
+  }
+
+  // Check the 'text' key (normalizeResponse wraps strings as { text: "..." })
+  if ('text' in record && typeof record.text === 'string') {
+    const parsed = tryParseString(record.text)
+    if (parsed) {
+      const found = findBrandsInObject(parsed, depth + 1)
+      if (found) return found
     }
-    // Alternative path: result.results (matches user's ChatGPT schema)
-    const results = obj?.results
-    if (Array.isArray(results)) {
-      // Map from ChatGPT-style schema to our Brand interface
-      return (results as Record<string, unknown>[]).map((r) => {
-        const wd = r?.website_details as Record<string, unknown> | undefined
-        const sm = wd?.social_media as Record<string, string> | undefined
-        const contacts = wd?.other_contacts
-        return {
-          brand_name: (r?.brand_name as string) ?? '',
-          website_url: (r?.selected_official_website as string) ?? (r?.official_website_turkey as string) ?? '',
-          website_scope: (r?.website_scope as string) ?? '',
-          confidence: (r?.confidence as string) ?? '',
-          verification_notes: (r?.verification_notes as string) ?? '',
-          logo_url: (wd?.logo_url as string) ?? '',
-          founded_year: (wd?.founded_year as string) ?? '',
-          about_summary: '',
-          about_page_link: (wd?.about_page_link as string) ?? '',
-          product_category: Array.isArray(wd?.product_categories)
-            ? (wd.product_categories as string[]).join(', ')
-            : (wd?.product_categories as string) ?? '',
-          social_media: {
-            twitter: sm?.twitter ?? '',
-            linkedin: sm?.linkedin ?? '',
-            instagram: sm?.instagram ?? '',
-            facebook: sm?.facebook ?? '',
-            youtube: sm?.youtube ?? '',
-            tiktok: sm?.tiktok ?? '',
-            pinterest: sm?.pinterest ?? '',
-          },
-          contact_info: {
-            email: (wd?.contact_email as string) ?? '',
-            phone: (wd?.contact_phone as string) ?? '',
-            hq_address: '',
-          },
-          status: (r?.confidence as string)?.toLowerCase() === 'verified' ? 'Complete' : 'Partial',
-        } as Brand
-      })
+  }
+
+  // Check 'result' key
+  if ('result' in record) {
+    const resolved = resolveValue(record.result)
+    const found = findBrandsInObject(resolved, depth + 1)
+    if (found) return found
+  }
+
+  // Check 'response' key
+  if ('response' in record) {
+    const resolved = resolveValue(record.response)
+    const found = findBrandsInObject(resolved, depth + 1)
+    if (found) return found
+  }
+
+  // Check 'data' key
+  if ('data' in record) {
+    const resolved = resolveValue(record.data)
+    const found = findBrandsInObject(resolved, depth + 1)
+    if (found) return found
+  }
+
+  return null
+}
+
+const parseAgentResponse = (result: AIAgentResponse): Brand[] => {
+  try {
+    // Strategy 1: Check response.result directly
+    const resultData = resolveValue(result?.response?.result)
+    const fromResult = findBrandsInObject(resultData)
+    if (fromResult && fromResult.length > 0) return fromResult
+
+    // Strategy 2: Check the full response object
+    const fromResponse = findBrandsInObject(result?.response)
+    if (fromResponse && fromResponse.length > 0) return fromResponse
+
+    // Strategy 3: Check the top-level result (entire API response)
+    const fromTopLevel = findBrandsInObject(result)
+    if (fromTopLevel && fromTopLevel.length > 0) return fromTopLevel
+
+    // Strategy 4: Check raw_response string
+    if (result?.raw_response) {
+      const rawParsed = resolveValue(result.raw_response)
+      const fromRaw = findBrandsInObject(rawParsed)
+      if (fromRaw && fromRaw.length > 0) return fromRaw
     }
-    // Fallback: maybe result itself is the brands array
-    if (Array.isArray(data)) {
-      return data as Brand[]
+
+    // Strategy 5: Check if response.result itself is the brands array
+    if (Array.isArray(resultData) && resultData.length > 0) {
+      const first = resultData[0]
+      if (typeof first === 'object' && first !== null && 'brand_name' in first) {
+        return resultData as Brand[]
+      }
     }
+
     return []
   } catch {
     return []
@@ -189,20 +283,58 @@ const parseResponseMeta = (
   result: AIAgentResponse
 ): { total: number; complete: number; partial: number } => {
   try {
-    let data = result?.response?.result as unknown
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data)
-      } catch {
-        return { total: 0, complete: 0, partial: 0 }
+    // Search through multiple possible locations
+    const candidates: unknown[] = [
+      resolveValue(result?.response?.result),
+      result?.response,
+      result,
+    ]
+    if (result?.raw_response) {
+      candidates.push(resolveValue(result.raw_response))
+    }
+
+    for (const candidate of candidates) {
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue
+      const obj = candidate as Record<string, unknown>
+
+      // Check if text field contains JSON with meta
+      if ('text' in obj && typeof obj.text === 'string') {
+        const parsed = tryParseString(obj.text)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const p = parsed as Record<string, unknown>
+          if (typeof p.total_brands === 'number') {
+            return {
+              total: p.total_brands as number,
+              complete: (p.complete_count as number) ?? 0,
+              partial: (p.partial_count as number) ?? 0,
+            }
+          }
+        }
+      }
+
+      if (typeof obj.total_brands === 'number') {
+        return {
+          total: obj.total_brands as number,
+          complete: (obj.complete_count as number) ?? 0,
+          partial: (obj.partial_count as number) ?? 0,
+        }
+      }
+      // Check nested result
+      if ('result' in obj) {
+        const inner = resolveValue(obj.result)
+        if (inner && typeof inner === 'object' && !Array.isArray(inner)) {
+          const r = inner as Record<string, unknown>
+          if (typeof r.total_brands === 'number') {
+            return {
+              total: r.total_brands as number,
+              complete: (r.complete_count as number) ?? 0,
+              partial: (r.partial_count as number) ?? 0,
+            }
+          }
+        }
       }
     }
-    const obj = data as Record<string, unknown> | undefined
-    return {
-      total: typeof obj?.total_brands === 'number' ? obj.total_brands : 0,
-      complete: typeof obj?.complete_count === 'number' ? obj.complete_count : 0,
-      partial: typeof obj?.partial_count === 'number' ? obj.partial_count : 0,
-    }
+    return { total: 0, complete: 0, partial: 0 }
   } catch {
     return { total: 0, complete: 0, partial: 0 }
   }
@@ -934,14 +1066,32 @@ ${brandList}`
 
       const result = await callAIAgent(message, AGENT_ID)
 
+      // Debug: log the full response structure to help diagnose parsing
+      console.log('[BrandScope] Agent result success:', result.success)
+      console.log('[BrandScope] response.result type:', typeof result?.response?.result)
+      console.log('[BrandScope] response.result keys:', result?.response?.result && typeof result.response.result === 'object' ? Object.keys(result.response.result) : 'N/A')
+      console.log('[BrandScope] response.result preview:', JSON.stringify(result?.response?.result)?.slice(0, 500))
+
       if (result.success) {
         const parsedBrands = parseAgentResponse(result)
         const parsedMeta = parseResponseMeta(result)
 
+        console.log('[BrandScope] Parsed brands count:', parsedBrands.length)
+        if (parsedBrands.length > 0) {
+          console.log('[BrandScope] First brand:', JSON.stringify(parsedBrands[0]).slice(0, 300))
+        }
+
         if (parsedBrands.length === 0) {
-          // If standard parsing failed, try raw text extraction
+          // Build a diagnostic message
+          const resultType = typeof result?.response?.result
+          const resultKeys = result?.response?.result && typeof result.response.result === 'object'
+            ? Object.keys(result.response.result as Record<string, unknown>).join(', ')
+            : resultType
+          console.error('[BrandScope] Parse failed. result type:', resultType, 'keys:', resultKeys)
+          console.error('[BrandScope] Full response.result:', JSON.stringify(result?.response?.result)?.slice(0, 1000))
+
           setError(
-            'Could not parse structured data from the agent response. The agent may still be processing or returned an unexpected format. Please try again.'
+            `Could not parse brand data from the agent response. Response type: ${resultType}, keys: [${resultKeys}]. Check browser console for details. Please try again.`
           )
           setLoading(false)
           setActiveAgent(false)
